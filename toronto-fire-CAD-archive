@@ -1,0 +1,75 @@
+#!/bin/ksh93
+
+# Regularly archive (say, weekly) the directory structure created by the
+# toronto-fire-CAD script.  The assumption is that at some point the raw
+# data is going to be scraped into a data repository of same kind, most
+# likely a sqlite3 database or something, and so while retention may be
+# nice retrieval time isn't a high priority.
+#
+# The only real trick this script has to play is to put a _little_ work
+# to avoid archiving a directory which is being actively updated.  The
+# mechanism for this is going to be the simplest possible one: we are
+# going to run with the assumption that toronto-fire-CAD will perform
+# its own, magically correct locking, so the only safety step strictly
+# required will be lopping off the most recently updated directory.
+# Since part of the policy control for this script is to leave a window
+# of un-archived directories, that safety margin should never be hit.
+
+typeset    dir_data archive_fn{,_fmt,_ext}
+typeset -i ret verbose ts_{now,select_older} i
+typeset -a dirs_{candidate,ts,selected} opts_{tar,compress,rm}
+
+dir_data=/home/gnomon/.toronto-fire-CAD
+ts_select_older=$((24 * 60 * 60)) # in seconds
+archive_fn_fmt='toronto-fire-CAD-archive-%(%Y%m%d-%H%M%S)T-%d.tar'
+
+opts_tar=(      'tar' '-c' '-f' '-' )
+opts_compress=( 'gzip' '-9' '-c'    )
+opts_rm=(       'rm' '-r'           )
+archive_fn_ext='.gz'
+
+verbose=0
+
+# FIXME: eventually these policy control variables will be moved into a
+# single config file, and an options search cascade (hardcoded defaults,
+# site-wide dir, home dir, environment variables, command line options)
+# will pick out the correct values to honour.
+#
+# For now we're just copying and pasting.
+
+ts_now=$(printf '%(%s)T' now)
+archive_fn=$(printf "$archive_fn_fmt" "#${ts_now}" "$$")
+
+if   ((verbose > 1)) ; then
+	opts_tar+=(      '-v' )
+	opts_compress+=( '-v' )
+	opts_rm+=(       '-v' )
+fi
+
+#dir_candidate_patt='+([0-9]).+([0-9]).+([0-9])*'
+
+cd "$dir_data" || exit 1
+dirs_candidate=( ~(N)+([0-9]).+([0-9]).+([0-9]) )
+#typeset -p dirs_{candidate,ts,selected}
+
+if ((${#dirs_candidate[@]} < 1)) ; then
+	exit 2
+fi
+
+dirs_ts=( $(stat -c %Y "${dirs_candidate[@]}") )
+
+for ((i=0; i<${#dirs_ts[@]}; i++)) ; do
+	if ((ts_now - dirs_ts[i] > ts_select_older)) ; then
+		dirs_selected+=( "${dirs_candidate[i]}" )
+	fi
+done
+
+#typeset -p dirs_{candidate,ts,selected}
+#echo ${#dirs_candidate[@]} ${#dirs_ts[@]} ${#dirs_selected[@]}
+
+# FIXME: insert sanity checks here
+
+"${opts_tar[@]}" -- "${dirs_selected[@]}" | \
+  "${opts_compress[@]}" > \
+  "${archive_fn}${archive_fn_ext}" && \
+  "${opts_rm[@]}" -- "${dirs_selected[@]}"
