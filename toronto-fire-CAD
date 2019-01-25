@@ -1,12 +1,12 @@
 #!/bin/ksh93
 
-# From http://www.toronto.ca/fire/cadinfo/livecad.htm :
+# From https://www.toronto.ca/community-people/public-safety-alerts/alerts-notifications/toronto-fire-active-incidents/ :
 #
 #  The following active incidents are dispatched from Toronto Fire Services
 #  Communication Centre. The contents are updated at five minute intervals
 #  from the CAD (Computer Aided Dispatch) system.
 #
-# http://www.toronto.ca/fire/cadinfo/livecad.xml is the machine-readable
+# https://www.toronto.ca/data/fire/livecad.xml is the machine-readable
 # version of the tabular information at the first link.  Apparently the
 # update frequency is "every five minutes", so let's assume we're polling
 # every 2.5 minutes (though of course this will be up to the cron job to
@@ -23,7 +23,7 @@ typeset -i ret verbose
 typeset -a opts_{mkdir,curl,mv}
 
 dir_data=/home/gnomon/.toronto-fire-CAD
-url_xml='http://www.toronto.ca/fire/cadinfo/livecad.xml'
+url_xml='https://www.toronto.ca/data/fire/livecad.xml'
 fn_xml='livecad.xml'
 fn_hdr='livecad.http'
 lock='.in_use'
